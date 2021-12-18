@@ -1,0 +1,12 @@
+IDE Used - Code composer studio
+Interface done with UART0 of processor. Interaction with UART0 is done using PuTTy.
+
+Requirements - Code composer studio and PuTTy.
+
+Commands available - 
+	1) color n - to change color from n=0 to n=7
+	2) sw n - to check state of switch 1 & 2
+	3) blink n - to blink LED at n*0.1 ms
+	4) temp - to get temperature in celcius and fahrenheit
+
+Note - Spaces between characters is ignored
