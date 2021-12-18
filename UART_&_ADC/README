@@ -10,3 +10,4 @@ Commands available -
 	4) temp - to get temperature in celcius and fahrenheit
 
 Note - Spaces between characters is ignored
+Note - copy paste all files in one folder. Also include TM4C123GH.H in the search path.
