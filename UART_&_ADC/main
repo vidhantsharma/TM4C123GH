@@ -1,0 +1,232 @@
+#include <stdio.h>
+#include <stdint.h>
+#include "inc/tm4c123gh6pm.h"
+#include <string.h>
+#include <tty.h>
+#include "inc/hw_memmap.h"
+
+int stop_condition = 0; // for stopping blinking
+void UART0_Handler(void); // ISR for UART Interrupt
+
+int main(void)
+{
+    UART0_Init();
+    PortF_Init();
+    ADC0_Initialization();
+    Delay(1);
+
+    char cmd[80];
+
+    printstring("Commands available - \n");
+    printstring("1) color n - to change color from n=0 to n=7\n");
+    printstring("2) sw n - to check state of switch 1 & 2\n");
+    printstring("3) blink n - to blink LED at n*0.1 ms\n");
+    printstring("4) temp - to get temperature in celcius and fahrenheit\n\n");
+
+    while(1)
+    {
+    readstring(cmd); // read command from putty
+    RemoveSpaces(cmd); // remove spaces from the command (if any)
+
+    // Color Command
+
+        if(strncmp(cmd,"color",strlen("color"))==0)
+            {
+            int m1;
+            int j1=0;
+            int k1;
+            char inputcolornum[80];
+            //unsigned int sw_state;
+            //sw_state = (GPIO_PORTF_DATA_R & 0x11);
+            for(k1=0;cmd[k1];k1++)
+                {
+                    if(cmd[k1]>='0' && cmd[k1]<='9')
+                        {
+                            inputcolornum[j1]=cmd[k1];
+                            j1++;
+                        }
+                }
+            inputcolornum[j1] = '\0';
+            m1 = atoi(inputcolornum);
+            if (m1<0 || m1>7)
+                printstring("Please select n as 0 to 7 only\n");
+            else if (m1==0)
+                    {
+                        printstring("red\n");
+                        GPIO_PORTF_DATA_R &= ~0x0F;
+                        GPIO_PORTF_DATA_R |= 0x02;
+                    }
+            else if (m1==1)
+                    {
+                        printstring("blue\n");
+                        GPIO_PORTF_DATA_R &= ~0x0F;
+                        GPIO_PORTF_DATA_R |= 0x04;
+                    }
+            else if (m1==2)
+                    {
+                        printstring("green\n");
+                        GPIO_PORTF_DATA_R &= ~0x0F;
+                        GPIO_PORTF_DATA_R |= 0x08;
+                    }
+            else if (m1==3)
+                    {
+                        printstring("red + blue\n");
+                        GPIO_PORTF_DATA_R &= ~0x0F;
+                        GPIO_PORTF_DATA_R |= 0x06;
+                    }
+            else if (m1==4)
+                    {
+                        printstring("blue + green\n");
+                        GPIO_PORTF_DATA_R &= ~0x0F;
+                        GPIO_PORTF_DATA_R |= 0x0C;
+                    }
+            else if (m1==5)
+                    {
+                        printstring("red + green\n");
+                        GPIO_PORTF_DATA_R &= ~0x0F;
+                        GPIO_PORTF_DATA_R |= 0x0A;
+                    }
+            else if (m1==6)
+                    {
+                        printstring("red + blue + green\n");
+                        GPIO_PORTF_DATA_R &= ~0x0F;
+                        GPIO_PORTF_DATA_R |= 0x0E;
+                    }
+            else if (m1==7)
+                    {
+                        printstring("blank\n");
+                        GPIO_PORTF_DATA_R &= ~0x0F;
+                        GPIO_PORTF_DATA_R |= 0x00;
+                    }
+            else
+                printstring("Invalid command\n");
+            }
+
+    // blink command
+    else if(strncmp(cmd,"blink",strlen("blink"))==0)
+        {
+
+        int n=0;
+        int j=0;
+        int k;
+        char inputstrnum[80];
+        unsigned int led_state;
+        led_state = (GPIO_PORTF_DATA_R & 0x0E); //store current state of LED
+        for(k=0;cmd[k];k++)
+            {
+                if(cmd[k]>='0' && cmd[k]<='9')
+                    {
+                       inputstrnum[j]=cmd[k];
+                       j++;
+                    }
+            }
+        inputstrnum[j] = '\0';
+        n = atoi(inputstrnum); //convert input 'n' to integer
+        if (n<1 || n>20)
+            {
+                //printstring("Blinking rate too fast/too slow.\nSetting blinking rate to 1 sec\n"); //uncomment if blinking even on worng entry is required
+                //n = 10; //uncomment if blinking even on worng entry is required
+                stop_condition = 1;
+            }
+
+        if(stop_condition==1)
+                printstring("please enter valid entry for blinking to take place");
+        else
+            {
+                printstring("Blinking has started\n");
+                printstring("Press 's' or 'S' to stop blinking\n");
+                UART0_ICR_R &= ~(0x0780);; // Clear receive interrupt
+                UART0_IM_R  = 0x0010; //enable interrupt for UART0 Rx
+                NVIC_EN0_R |= (1<<5); /* enable IRQ5 for UART0 */
+            }
+        while (stop_condition == 0) //stop_condition is true till interrupt from uart
+            {
+                int counter;
+                // Blinking LED
+                GPIO_PORTF_DATA_R = led_state;
+                for(counter=0;counter<=n;counter++)
+                Delay(100);
+                GPIO_PORTF_DATA_R &= ~0x0F;
+                for(counter=0;counter<=n;counter++)
+                Delay(100);
+            }
+        GPIO_PORTF_DATA_R = led_state; //Restoring last state of LED after UART interrupt
+        stop_condition = 0; // restoring stop_condition after UART Interrupt
+        }
+
+    //switch command
+    else if(strncmp(cmd,"sw",strlen("sw"))==0)
+        {
+        int m;
+        int j=0;
+        int k;
+        char inputswnum[80];
+        unsigned int sw_state;
+        sw_state = (GPIO_PORTF_DATA_R & 0x11);
+        for(k=0;cmd[k];k++)
+            {
+                if(cmd[k]>='0' && cmd[k]<='9')
+                    {
+                        inputswnum[j]=cmd[k];
+                        j++;
+                    }
+            }
+        inputswnum[j] = '\0';
+        m = atoi(inputswnum);
+        if (m<1 || m>2)
+            printstring("Please select n as 1 or 2\n");
+        else if (m==1 && (sw_state==1 || sw_state==0))
+            printstring("Switch 1 is pressed\n");
+        else if (m==2 && (sw_state==16 || sw_state==0))
+            printstring("Switch 2 is pressed\n");
+        else
+            printstring("not pressed\n");
+        }
+
+    // temperature command
+    else if(strncmp(cmd,"temp",strlen("temp"))==0)
+        {
+        float temperature_in_c;
+        float temperature_in_f;
+        char tempbuf_c[8] = {'0','0','0','0','0','0','0','0'};
+        char tempbuf_f[8] = {'0','0','0','0','0','0','0','0'};
+        ADC0_PSSI_R|=(1<<3); //start conversion
+        while((ADC0_RIS_R & 8) == 0);   /* wait for conversion complete */
+        temperature_in_c = 147.5 - (247.5 * ADC0_SSFIFO3_R) / 4096; // T(in celcius) = 147.5 – ((75 × 3.3V) × ADC_output) / 4096
+        temperature_in_f = temperature_in_c*1.8 +32; //T(in F) = T(in C)*(9/5) + 32
+        ADC0_ISC_R = 8;          /* clear completion flag */
+        ftoa(temperature_in_c,tempbuf_c); // convert float to string for printing
+        printstring(" degree celcius \n");
+        ftoa(temperature_in_f,tempbuf_f); // convert float to string for printing
+        printstring(" degree fahrenheit \n");
+        }
+    else
+        {
+            printstring("Invalid selection\n");
+        }
+
+    //printstring(cmd);
+    printstring("\n");
+    }
+}
+
+// Interrupt Handler for UART0
+void UART0_Handler( void )
+{
+unsigned char rx_data = 0;
+UART0_ICR_R &= ~(0x010); // Clear receive interrupt
+rx_data = UART0_DR_R ; // get the received data byte
+if(rx_data == 's' || rx_data == 'S')
+    {
+    stop_condition = 1; // Escape from while loop in LED Blinking command
+    printstring("\nBlinking is stopped\n");
+    UART0_IM_R  = 0; //Disable interrupt from uart
+    NVIC_EN0_R = 0; // disable NVIC Interrupt
+    }
+else
+    {
+        printstring("\ninvalid key press\n");
+    }
+}
+
+
